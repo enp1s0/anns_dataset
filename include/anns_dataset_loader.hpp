@@ -72,7 +72,7 @@ int load(
 		T* const ptr,
 		const std::string file_path,
 		const bool print_log = false,
-		format_t format = TYPE_AUTO
+		const format_t format = TYPE_AUTO
 		) {
 
 	std::ifstream ifs(file_path);
@@ -100,15 +100,27 @@ int load(
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
 	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
+	format_t format_ = format;
 	if (format == TYPE_AUTO) {
 		if (is_vecs) {
-			format = TYPE_VECS;
+			format_ = TYPE_VECS;
 		} else {
-			format = TYPE_BIGANN;
+			format_ = TYPE_BIGANN;
 		}
 	}
 
-	if (format == TYPE_VECS) {
+	std::printf("[ANNS-DS %s]: Format = ", __func__);
+	if (format_ == TYPE_BIGANN) {
+		std::printf("TYPE_BIGANN");
+	} else if (format_ == TYPE_VECS) {
+		std::printf("TYPE_VECS");
+	}
+	if (format == TYPE_AUTO) {
+		std::printf(" (AUTO DETECTED)");
+	}
+	std::printf("\n");
+
+	if (format_ == TYPE_VECS) {
 		const auto data_dim = header[0];
 		const auto num_data = (file_size - sizeof(std::uint32_t)) / (sizeof(std::uint32_t) + data_dim * sizeof(T));
 		if (print_log) {
