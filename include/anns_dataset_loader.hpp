@@ -29,7 +29,7 @@ inline void load_size_info(
 	std::uint32_t header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_vecs = (header[0] * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
+	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
 
 	if (is_vecs) {
 		data_dim = header[0];
@@ -82,7 +82,7 @@ int load(
 	std::uint32_t header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_vecs = (header[0] * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
+	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
 
 	if (is_vecs) {
 		const auto data_dim = header[0];
