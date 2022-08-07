@@ -4,11 +4,18 @@
 
 namespace mtk {
 namespace anns_dataset {
+enum format_t {
+	TYPE_VECS,
+	TYPE_BIGANN,
+	TYPE_AUTO
+};
 template <class T>
 inline void load_size_info(
 		const std::string file_path,
 		std::size_t& num_data,
-		std::size_t& data_dim) {
+		std::size_t& data_dim,
+		format_t format
+		) {
 	num_data = 0;
 	data_dim = 0;
 
@@ -30,8 +37,15 @@ inline void load_size_info(
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
 	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
+	if (format == TYPE_AUTO) {
+		if (is_vecs) {
+			format = TYPE_VECS;
+		} else {
+			format = TYPE_BIGANN;
+		}
+	}
 
-	if (is_vecs) {
+	if (format == TYPE_VECS) {
 		data_dim = header[0];
 		num_data = (file_size - sizeof(std::uint32_t)) / (sizeof(std::uint32_t) + data_dim * sizeof(T));
 	} else {
@@ -43,10 +57,12 @@ inline void load_size_info(
 
 template <class T>
 inline std::pair<std::size_t, std::size_t> load_size_info(
-		const std::string file_path) {
+		const std::string file_path,
+		const format_t format = TYPE_AUTO
+		) {
 	std::size_t data_dim, num_data;
 
-	load_size_info<T>(file_path, num_data, data_dim);
+	load_size_info<T>(file_path, num_data, data_dim, format);
 
 	return std::make_pair(num_data, data_dim);
 }
@@ -55,7 +71,8 @@ template <class T>
 int load(
 		T* const ptr,
 		const std::string file_path,
-		const bool print_log = false
+		const bool print_log = false,
+		format_t format = TYPE_AUTO
 		) {
 
 	std::ifstream ifs(file_path);
@@ -83,8 +100,15 @@ int load(
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
 	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
+	if (format == TYPE_AUTO) {
+		if (is_vecs) {
+			format = TYPE_VECS;
+		} else {
+			format = TYPE_BIGANN;
+		}
+	}
 
-	if (is_vecs) {
+	if (format == TYPE_VECS) {
 		const auto data_dim = header[0];
 		const auto num_data = (file_size - sizeof(std::uint32_t)) / (sizeof(std::uint32_t) + data_dim * sizeof(T));
 		if (print_log) {
