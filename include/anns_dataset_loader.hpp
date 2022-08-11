@@ -32,8 +32,8 @@ inline format_t detect_file_format(
 	std::uint32_t header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_vecs = static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size;
-	const auto is_bigann = (file_size - sizeof(std::uint32_t)) % static_cast<std::size_t>(sizeof(std::uint32_t) + header[0] * sizeof(T)) == 0;
+	const auto is_bigann = static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) == file_size;
+	const auto is_vecs = (file_size - sizeof(std::uint32_t)) % static_cast<std::size_t>(sizeof(std::uint32_t) + header[0] * sizeof(T)) == 0;
 
 	if (is_vecs) {
 		return FORMAT_VECS;
@@ -177,6 +177,7 @@ int load(
 		}
 		if (print_log) {
 			std::printf("\n");
+			std::printf("[ANNS-DS %s]: Completed\n", __func__);
 			std::fflush(stdout);
 		}
 	} else {
@@ -200,6 +201,7 @@ int load(
 		}
 		if (print_log) {
 			std::printf("\n");
+			std::printf("[ANNS-DS %s]: Completed\n", __func__);
 			std::fflush(stdout);
 		}
 	}
