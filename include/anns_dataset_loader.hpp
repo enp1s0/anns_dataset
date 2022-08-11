@@ -10,7 +10,7 @@ enum format_t {
 	TYPE_AUTO
 };
 template <class T>
-inline void load_size_info(
+inline format_t load_size_info(
 		const std::string file_path,
 		std::size_t& num_data,
 		std::size_t& data_dim,
@@ -53,6 +53,8 @@ inline void load_size_info(
 		num_data = header[0];
 	}
 	ifs.close();
+
+	return format;
 }
 
 template <class T>
