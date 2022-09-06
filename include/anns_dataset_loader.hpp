@@ -171,7 +171,7 @@ int load(
 			ifs.read(reinterpret_cast<char*>(&tmp), sizeof(std::uint32_t));
 
 			const auto offset = static_cast<std::uint64_t>(i) * data_dim;
-			if (!std::is_same<T, MEM_T>::value) {
+			if (std::is_same<T, MEM_T>::value) {
 				ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
 			} else {
 				ifs.read(reinterpret_cast<char*>(buffer.get()), sizeof(T) * data_dim);
@@ -208,7 +208,7 @@ int load(
 
 		for (std::uint32_t i = 0; i < num_data; i++) {
 			const auto offset = static_cast<std::uint64_t>(i) * data_dim;
-			if (!std::is_same<T, MEM_T>::value) {
+			if (std::is_same<T, MEM_T>::value) {
 				ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
 			} else {
 				ifs.read(reinterpret_cast<char*>(buffer.get()), sizeof(T) * data_dim);
