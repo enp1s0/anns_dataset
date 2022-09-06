@@ -71,7 +71,6 @@ inline void load_size_info(
 	std::uint32_t header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(std::uint32_t) != file_size);
 	if (format == FORMAT_AUTO_DETECT) {
 		if ((format = detect_file_format<T>(file_path)) == FORMAT_UNKNOWN) {
 			return;
