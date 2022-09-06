@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 namespace mtk {
 namespace anns_dataset {
@@ -99,9 +100,9 @@ inline std::pair<std::size_t, std::size_t> load_size_info(
 	return std::make_pair(num_data, data_dim);
 }
 
-template <class T>
+template <class MEM_T, class T = MEM_T>
 int load(
-		T* const ptr,
+		MEM_T* const ptr,
 		const std::string file_path,
 		const bool print_log = false,
 		const format_t format = FORMAT_AUTO_DETECT
@@ -161,12 +162,24 @@ int load(
 			std::fflush(stdout);
 		}
 
+		std::unique_ptr<T[]> buffer;
+		if (!std::is_same<T, MEM_T>::value) {
+			buffer = std::unique_ptr<T[]>(new T[data_dim]);
+		}
+
 		for (std::uint32_t i = 0; i < num_data; i++) {
 			std::uint32_t tmp;
 			ifs.read(reinterpret_cast<char*>(&tmp), sizeof(std::uint32_t));
 
 			const auto offset = static_cast<std::uint64_t>(i) * data_dim;
-			ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
+			if (!std::is_same<T, MEM_T>::value) {
+				ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
+			} else {
+				ifs.read(reinterpret_cast<char*>(buffer.get()), sizeof(T) * data_dim);
+				for (std::uint32_t j = 0; j < data_dim; j++) {
+					(ptr + offset)[j] = static_cast<MEM_T>(buffer.get()[j]);
+				}
+			}
 
 			if (print_log) {
 				if (i % (num_data / 1000) == 0) {
@@ -189,9 +202,21 @@ int load(
 			std::fflush(stdout);
 		}
 
+		std::unique_ptr<T[]> buffer;
+		if (!std::is_same<T, MEM_T>::value) {
+			buffer = std::unique_ptr<T[]>(new T[data_dim]);
+		}
+
 		for (std::uint32_t i = 0; i < num_data; i++) {
 			const auto offset = static_cast<std::uint64_t>(i) * data_dim;
-			ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
+			if (!std::is_same<T, MEM_T>::value) {
+				ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
+			} else {
+				ifs.read(reinterpret_cast<char*>(buffer.get()), sizeof(T) * data_dim);
+				for (std::uint32_t j = 0; j < data_dim; j++) {
+					(ptr + offset)[j] = static_cast<MEM_T>(buffer.get()[j]);
+				}
+			}
 			if (print_log) {
 				if (i % (num_data / 1000) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / num_data);
