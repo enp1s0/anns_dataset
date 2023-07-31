@@ -250,7 +250,7 @@ inline int store(
 	if (format == format_t::FORMAT_VECS) {
 		ofs.write(reinterpret_cast<const char*>(&data_dim), sizeof(header_T));
 
-		for (std::uint32_t i = 0; i < data_size; i++) {
+		for (std::size_t i = 0; i < data_size; i++) {
 			const header_T d = data_dim;
 			ofs.write(reinterpret_cast<const char*>(&d), sizeof(header_T));
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
@@ -261,7 +261,7 @@ inline int store(
 		ofs.write(reinterpret_cast<const char*>(&s), sizeof(header_T));
 		ofs.write(reinterpret_cast<const char*>(&d), sizeof(header_T));
 
-		for (std::uint32_t i = 0; i < data_size; i++) {
+		for (std::size_t i = 0; i < data_size; i++) {
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
 		}
 	} else {
