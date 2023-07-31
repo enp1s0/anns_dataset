@@ -8,11 +8,11 @@ int test(
 	) {
 	const auto [num_data, data_dim] = mtk::anns_dataset::load_size_info<data_t>(dataset_path);
 
-	auto dataset_uptr = std::unique_ptr<data_t[]>(new data_t[num_data * data_dim]);
+	auto dataset_uptr = std::unique_ptr<float[]>(new float[num_data * data_dim]);
 
 	const auto format = mtk::anns_dataset::detect_file_format<data_t>(dataset_path);
 
-	if (mtk::anns_dataset::load(dataset_uptr.get(), dataset_path, true)) {
+	if (mtk::anns_dataset::load<float, data_t>(dataset_uptr.get(), dataset_path, true)) {
 		std::printf("Failed @l.%d\n", __LINE__);
 		return 1;
 	}
