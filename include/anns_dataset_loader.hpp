@@ -12,6 +12,25 @@ enum class format_t {
 	FORMAT_UNKNOWN
 };
 
+inline std::string get_format_str(const format_t format) {
+	switch (format) {
+	case format_t::FORMAT_VECS: return "VECS";
+	case format_t::FORMAT_BIGANN: return "BIGANN";
+	case format_t::FORMAT_UNKNOWN: return "UNKNOWN";
+	case format_t::FORMAT_AUTO_DETECT: return "AUTO_DETECT";
+	default: break;
+	}
+	return "(unknown)";
+}
+
+namespace detail {
+template <class data_T, class header_T>
+bool is_bigann(const header_T header[2], const std::size_t file_size) {return static_cast<std::size_t>(header[0]) * header[1] * sizeof(data_T) + 2 * sizeof(header_T) == file_size;}
+template <class data_T, class header_T>
+bool is_vecs  (const header_T header[2], const std::size_t file_size) {return file_size % static_cast<std::size_t>(sizeof(header_T) + header[0] * sizeof(data_T)) == 0;}
+
+} // unnamed namespace
+
 template <class T, class header_T = std::uint32_t>
 inline format_t detect_file_format(
 		const std::string file_path
