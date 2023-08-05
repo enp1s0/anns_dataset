@@ -12,6 +12,25 @@ enum class format_t {
 	FORMAT_UNKNOWN
 };
 
+inline std::string get_format_str(const format_t format) {
+	switch (format) {
+	case format_t::FORMAT_VECS: return "VECS";
+	case format_t::FORMAT_BIGANN: return "BIGANN";
+	case format_t::FORMAT_UNKNOWN: return "UNKNOWN";
+	case format_t::FORMAT_AUTO_DETECT: return "AUTO_DETECT";
+	default: break;
+	}
+	return "(unknown)";
+}
+
+namespace detail {
+template <class data_T, class header_T>
+bool is_bigann(const header_T header[2], const std::size_t file_size) {return static_cast<std::size_t>(header[0]) * header[1] * sizeof(data_T) + 2 * sizeof(header_T) == file_size;}
+template <class data_T, class header_T>
+bool is_vecs  (const header_T header[2], const std::size_t file_size) {return file_size % static_cast<std::size_t>(sizeof(header_T) + header[0] * sizeof(data_T)) == 0;}
+
+} // unnamed namespace
+
 template <class T, class header_T = std::uint32_t>
 inline format_t detect_file_format(
 		const std::string file_path
@@ -32,14 +51,15 @@ inline format_t detect_file_format(
 
 	header_T header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
+	ifs.close();
 
-	const auto is_bigann = static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(header_T) == file_size;
-	const auto is_vecs = (file_size - sizeof(header_T)) % static_cast<std::size_t>(sizeof(header_T) + header[0] * sizeof(T)) == 0;
+	const auto is_bigann = detail::is_bigann<T, header_T>(header, file_size);
+	const auto is_vecs   = detail::is_vecs  <T, header_T>(header, file_size);
 
-	if (is_vecs) {
-		return format_t::FORMAT_VECS;
-	} else if (is_bigann) {
+	if (is_bigann) {
 		return format_t::FORMAT_BIGANN;
+	} else if (is_vecs) {
+		return format_t::FORMAT_VECS;
 	}
 	return format_t::FORMAT_UNKNOWN;
 }
@@ -79,7 +99,7 @@ inline void load_size_info(
 
 	if (format == format_t::FORMAT_VECS) {
 		data_dim = header[0];
-		num_data = (file_size - sizeof(header_T)) / (sizeof(header_T) + data_dim * sizeof(T));
+		num_data = file_size / (sizeof(header_T) + data_dim * sizeof(T));
 	} else {
 		data_dim = header[1];
 		num_data = header[0];
@@ -131,13 +151,15 @@ int load(
 	HEADER_T header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_vecs = (static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(HEADER_T) != file_size);
 	format_t format_ = format;
 	if (format == format_t::FORMAT_AUTO_DETECT) {
-		if (is_vecs) {
+		if (detail::is_bigann<T, HEADER_T>(header, file_size)) {
+			format_ = format_t::FORMAT_BIGANN;
+		} else if (detail::is_vecs<T, HEADER_T>(header, file_size)) {
 			format_ = format_t::FORMAT_VECS;
 		} else {
-			format_ = format_t::FORMAT_BIGANN;
+			format_ = format_t::FORMAT_UNKNOWN;
+			return 1;
 		}
 	}
 
@@ -154,7 +176,7 @@ int load(
 
 	if (format_ == format_t::FORMAT_VECS) {
 		const auto data_dim = header[0];
-		const auto num_data = (file_size - sizeof(HEADER_T)) / (sizeof(HEADER_T) + data_dim * sizeof(T));
+		const auto num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
 		if (print_log) {
 			std::printf("[ANNS-DS %s]: Dataset dimension = %u\n", __func__, data_dim);
 			std::printf("[ANNS-DS %s]: Num data = %u\n", __func__, num_data);
@@ -166,6 +188,7 @@ int load(
 			buffer = std::unique_ptr<T[]>(new T[data_dim]);
 		}
 
+		ifs.seekg(0, ifs.beg);
 		for (HEADER_T i = 0; i < num_data; i++) {
 			HEADER_T tmp;
 			ifs.read(reinterpret_cast<char*>(&tmp), sizeof(HEADER_T));
@@ -181,7 +204,8 @@ int load(
 			}
 
 			if (print_log) {
-				if (i % (num_data / 1000) == 0) {
+				constexpr auto interval = 1000;
+				if (num_data > interval && i % (num_data / interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / num_data);
 					std::fflush(stdout);
 				}
@@ -217,7 +241,8 @@ int load(
 				}
 			}
 			if (print_log) {
-				if (i % (num_data / 1000) == 0) {
+				constexpr auto interval = 1000;
+				if (num_data > interval && i % (num_data / interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / num_data);
 					std::fflush(stdout);
 				}
@@ -243,13 +268,21 @@ inline int store(
 		const std::size_t data_size,
 		const std::size_t data_dim,
 		const T* const data_ptr,
-		const format_t format
+		const format_t format,
+		const bool print_log = false
 		) {
 	std::ofstream ofs(dst_path);
+	if (!ofs) {
+		return 1;
+	}
+	if (print_log) {
+		std::printf("[ANNS-DS %s]: Dataset path = %s\n", __func__, dst_path.c_str());
+		std::printf("[ANNS-DS %s]: Dataset size = %lu\n", __func__, data_size);
+		std::printf("[ANNS-DS %s]: Dataset dimension = %lu\n", __func__, data_dim);
+		std::fflush(stdout);
+	}
 
 	if (format == format_t::FORMAT_VECS) {
-		ofs.write(reinterpret_cast<const char*>(&data_dim), sizeof(header_T));
-
 		for (std::size_t i = 0; i < data_size; i++) {
 			const header_T d = data_dim;
 			ofs.write(reinterpret_cast<const char*>(&d), sizeof(header_T));
@@ -265,6 +298,7 @@ inline int store(
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
 		}
 	} else {
+		std::printf("[ANNS-DS %s]: Unknown format (%s)\n", __func__, get_format_str(format).c_str());
 		return 1;
 	}
 
