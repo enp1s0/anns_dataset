@@ -12,7 +12,7 @@ enum class format_t {
 	FORMAT_UNKNOWN
 };
 
-template <class T, class headet_T = std::uint32_t>
+template <class T, class header_T = std::uint32_t>
 inline format_t detect_file_format(
 		const std::string file_path
 		) {
@@ -30,11 +30,11 @@ inline format_t detect_file_format(
 	const auto file_size = static_cast<std::size_t>(ifs.tellg());
 	ifs.seekg(0, ifs.beg);
 
-	headet_T header[2];
+	header_T header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
-	const auto is_bigann = static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(headet_T) == file_size;
-	const auto is_vecs = (file_size - sizeof(headet_T)) % static_cast<std::size_t>(sizeof(headet_T) + header[0] * sizeof(T)) == 0;
+	const auto is_bigann = static_cast<std::size_t>(header[0]) * header[1] * sizeof(T) + 2 * sizeof(header_T) == file_size;
+	const auto is_vecs = (file_size - sizeof(header_T)) % static_cast<std::size_t>(sizeof(header_T) + header[0] * sizeof(T)) == 0;
 
 	if (is_vecs) {
 		return format_t::FORMAT_VECS;
@@ -44,7 +44,7 @@ inline format_t detect_file_format(
 	return format_t::FORMAT_UNKNOWN;
 }
 
-template <class T, class headet_T = std::uint32_t>
+template <class T, class header_T = std::uint32_t>
 inline void load_size_info(
 		const std::string file_path,
 		std::size_t& num_data,
@@ -68,7 +68,7 @@ inline void load_size_info(
 	const auto file_size = static_cast<std::size_t>(ifs.tellg());
 	ifs.seekg(0, ifs.beg);
 
-	headet_T header[2];
+	header_T header[2];
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
 	if (format == format_t::FORMAT_AUTO_DETECT) {
@@ -79,7 +79,7 @@ inline void load_size_info(
 
 	if (format == format_t::FORMAT_VECS) {
 		data_dim = header[0];
-		num_data = (file_size - sizeof(headet_T)) / (sizeof(headet_T) + data_dim * sizeof(T));
+		num_data = (file_size - sizeof(header_T)) / (sizeof(header_T) + data_dim * sizeof(T));
 	} else {
 		data_dim = header[1];
 		num_data = header[0];
@@ -87,14 +87,14 @@ inline void load_size_info(
 	ifs.close();
 }
 
-template <class T, class headet_T = std::uint32_t>
+template <class T, class header_T = std::uint32_t>
 inline std::pair<std::size_t, std::size_t> load_size_info(
 		const std::string file_path,
 		const format_t format = format_t::FORMAT_AUTO_DETECT
 		) {
 	std::size_t data_dim, num_data;
 
-	load_size_info<T, headet_T>(file_path, num_data, data_dim, format);
+	load_size_info<T, header_T>(file_path, num_data, data_dim, format);
 
 	return std::make_pair(num_data, data_dim);
 }
