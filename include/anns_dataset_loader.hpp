@@ -287,6 +287,14 @@ inline int store(
 			const header_T d = data_dim;
 			ofs.write(reinterpret_cast<const char*>(&d), sizeof(header_T));
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
+
+			if (print_log) {
+				constexpr auto interval = 1000;
+				if (data_size > interval && i % (data_size / interval) == 0) {
+					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
+					std::fflush(stdout);
+				}
+			}
 		}
 	} else if (format == format_t::FORMAT_BIGANN) {
 		const header_T d = data_dim;
@@ -296,10 +304,23 @@ inline int store(
 
 		for (std::size_t i = 0; i < data_size; i++) {
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
+
+			if (print_log) {
+				constexpr auto interval = 1000;
+				if (data_size > interval && i % (data_size / interval) == 0) {
+					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
+					std::fflush(stdout);
+				}
+			}
 		}
 	} else {
 		std::printf("[ANNS-DS %s]: Unknown format (%s)\n", __func__, get_format_str(format).c_str());
 		return 1;
+	}
+	if (print_log) {
+		std::printf("\n");
+		std::printf("[ANNS-DS %s]: Completed\n", __func__);
+		std::fflush(stdout);
 	}
 
 	ofs.close();
