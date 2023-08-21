@@ -175,11 +175,11 @@ int load(
 	std::printf("\n");
 
 	if (format_ == format_t::FORMAT_VECS) {
-		const auto data_dim = header[0];
-		const auto num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
+		const std::size_t data_dim = header[0];
+		const std::size_t num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
 		if (print_log) {
-			std::printf("[ANNS-DS %s]: Dataset dimension = %u\n", __func__, data_dim);
-			std::printf("[ANNS-DS %s]: Num data = %u\n", __func__, num_data);
+			std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__, data_dim);
+			std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
 			std::fflush(stdout);
 		}
 
@@ -217,11 +217,11 @@ int load(
 			std::fflush(stdout);
 		}
 	} else {
-		const auto data_dim = header[1];
-		const auto num_data = header[0];
+		const std::size_t data_dim = header[1];
+		const std::size_t num_data = header[0];
 		if (print_log) {
-			std::printf("[ANNS-DS %s]: Dataset dimension = %u\n", __func__, data_dim);
-			std::printf("[ANNS-DS %s]: Num data = %u\n", __func__, num_data);
+			std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__, data_dim);
+			std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
 			std::fflush(stdout);
 		}
 
@@ -277,8 +277,8 @@ inline int store(
 	}
 	if (print_log) {
 		std::printf("[ANNS-DS %s]: Dataset path = %s\n", __func__, dst_path.c_str());
-		std::printf("[ANNS-DS %s]: Dataset size = %lu\n", __func__, data_size);
-		std::printf("[ANNS-DS %s]: Dataset dimension = %lu\n", __func__, data_dim);
+		std::printf("[ANNS-DS %s]: Dataset size = %zu\n", __func__, data_size);
+		std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__, data_dim);
 		std::fflush(stdout);
 	}
 
@@ -287,6 +287,14 @@ inline int store(
 			const header_T d = data_dim;
 			ofs.write(reinterpret_cast<const char*>(&d), sizeof(header_T));
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
+
+			if (print_log) {
+				constexpr auto interval = 1000;
+				if (data_size > interval && i % (data_size / interval) == 0) {
+					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
+					std::fflush(stdout);
+				}
+			}
 		}
 	} else if (format == format_t::FORMAT_BIGANN) {
 		const header_T d = data_dim;
@@ -296,10 +304,23 @@ inline int store(
 
 		for (std::size_t i = 0; i < data_size; i++) {
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
+
+			if (print_log) {
+				constexpr auto interval = 1000;
+				if (data_size > interval && i % (data_size / interval) == 0) {
+					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
+					std::fflush(stdout);
+				}
+			}
 		}
 	} else {
 		std::printf("[ANNS-DS %s]: Unknown format (%s)\n", __func__, get_format_str(format).c_str());
 		return 1;
+	}
+	if (print_log) {
+		std::printf("\n");
+		std::printf("[ANNS-DS %s]: Completed\n", __func__);
+		std::fflush(stdout);
 	}
 
 	ofs.close();
