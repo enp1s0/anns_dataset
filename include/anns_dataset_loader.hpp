@@ -121,11 +121,12 @@ inline void load_size_info(
 template <class T, class header_T = std::uint32_t>
 inline std::pair<std::size_t, std::size_t> load_size_info(
 		const std::string file_path,
-		const format_t format = format_t::FORMAT_AUTO_DETECT
+		const format_t format = format_t::FORMAT_AUTO_DETECT,
+		const bool print_log = false
 		) {
 	std::size_t data_dim, num_data;
 
-	load_size_info<T, header_T>(file_path, num_data, data_dim, format);
+	load_size_info<T, header_T>(file_path, num_data, data_dim, format, print_log);
 
 	return std::make_pair(num_data, data_dim);
 }
