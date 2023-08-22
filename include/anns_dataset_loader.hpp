@@ -33,7 +33,8 @@ bool is_vecs  (const header_T header[2], const std::size_t file_size) {return fi
 
 template <class T, class header_T = std::uint32_t>
 inline format_t detect_file_format(
-		const std::string file_path
+		const std::string file_path,
+		const bool print_log = false
 		) {
 	std::ifstream ifs(file_path);
 	if (!ifs) {
@@ -56,12 +57,21 @@ inline format_t detect_file_format(
 	const auto is_bigann = detail::is_bigann<T, header_T>(header, file_size);
 	const auto is_vecs   = detail::is_vecs  <T, header_T>(header, file_size);
 
+	mtk::anns_dataset::format_t format;
 	if (is_bigann) {
-		return format_t::FORMAT_BIGANN;
+		format = format_t::FORMAT_BIGANN;
 	} else if (is_vecs) {
-		return format_t::FORMAT_VECS;
+		format = format_t::FORMAT_VECS;
+	} else {
+		format = format_t::FORMAT_UNKNOWN;
 	}
-	return format_t::FORMAT_UNKNOWN;
+
+	if (print_log) {
+		std::printf("[ANNS-DS %s]: Detected format = %s\n", __func__, get_format_str(format).c_str());
+		std::fflush(stdout);
+	}
+
+	return format;
 }
 
 template <class T, class header_T = std::uint32_t>
@@ -69,7 +79,8 @@ inline void load_size_info(
 		const std::string file_path,
 		std::size_t& num_data,
 		std::size_t& data_dim,
-		format_t format
+		format_t format = mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
+		const bool print_log = false
 		) {
 	num_data = 0;
 	data_dim = 0;
@@ -92,7 +103,7 @@ inline void load_size_info(
 	ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
 	if (format == format_t::FORMAT_AUTO_DETECT) {
-		if ((format = detect_file_format<T>(file_path)) == format_t::FORMAT_UNKNOWN) {
+		if ((format = detect_file_format<T, header_T>(file_path, print_log)) == format_t::FORMAT_UNKNOWN) {
 			return;
 		}
 	}
