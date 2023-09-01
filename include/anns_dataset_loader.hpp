@@ -94,6 +94,11 @@ inline void load_size_info(
 			);
 	}
 
+	if (print_log) {
+		std::printf("[ANNS-DS %s]: Given format / mode = %s\n", __func__, get_format_str(format).c_str());
+		std::fflush(stdout);
+	}
+
 	// Calculate file size
 	ifs.seekg(0, ifs.end);
 	const auto file_size = static_cast<std::size_t>(ifs.tellg());
@@ -186,6 +191,7 @@ int load(
 	}
 	std::printf("\n");
 
+	constexpr auto loading_progress_interval = 1000;
 	if (format_ == format_t::FORMAT_VECS) {
 		const std::size_t data_dim = header[0];
 		const std::size_t num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
@@ -216,17 +222,11 @@ int load(
 			}
 
 			if (print_log) {
-				constexpr auto interval = 1000;
-				if (num_data > interval && i % (num_data / interval) == 0) {
+				if (num_data > loading_progress_interval && i % (num_data / loading_progress_interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / num_data);
 					std::fflush(stdout);
 				}
 			}
-		}
-		if (print_log) {
-			std::printf("\n");
-			std::printf("[ANNS-DS %s]: Completed\n", __func__);
-			std::fflush(stdout);
 		}
 	} else {
 		const std::size_t data_dim = header[1];
@@ -253,21 +253,16 @@ int load(
 				}
 			}
 			if (print_log) {
-				constexpr auto interval = 1000;
-				if (num_data > interval && i % (num_data / interval) == 0) {
+				if (num_data > loading_progress_interval && i % (num_data / loading_progress_interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / num_data);
 					std::fflush(stdout);
 				}
 			}
 		}
-		if (print_log) {
-			std::printf("\n");
-			std::printf("[ANNS-DS %s]: Completed\n", __func__);
-			std::fflush(stdout);
-		}
 	}
-
 	if (print_log) {
+		std::printf("\n");
+		std::printf("[ANNS-DS %s]: Completed\n", __func__);
 		std::fflush(stdout);
 	}
 	ifs.close();
@@ -294,6 +289,7 @@ inline int store(
 		std::fflush(stdout);
 	}
 
+	constexpr auto loading_progress_interval = 1000;
 	if (format == format_t::FORMAT_VECS) {
 		for (std::size_t i = 0; i < data_size; i++) {
 			const header_T d = data_dim;
@@ -301,8 +297,7 @@ inline int store(
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
 
 			if (print_log) {
-				constexpr auto interval = 1000;
-				if (data_size > interval && i % (data_size / interval) == 0) {
+				if (data_size > loading_progress_interval && i % (data_size / loading_progress_interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
 					std::fflush(stdout);
 				}
@@ -318,8 +313,7 @@ inline int store(
 			ofs.write(reinterpret_cast<const char*>(data_ptr + i * data_dim), sizeof(T) * data_dim);
 
 			if (print_log) {
-				constexpr auto interval = 1000;
-				if (data_size > interval && i % (data_size / interval) == 0) {
+				if (data_size > loading_progress_interval && i % (data_size / loading_progress_interval) == 0) {
 					std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
 					std::fflush(stdout);
 				}
@@ -327,6 +321,7 @@ inline int store(
 		}
 	} else {
 		std::printf("[ANNS-DS %s]: Unknown format (%s)\n", __func__, get_format_str(format).c_str());
+		ofs.close();
 		return 1;
 	}
 	if (print_log) {
