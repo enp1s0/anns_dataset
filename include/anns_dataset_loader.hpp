@@ -295,6 +295,9 @@ int load(
           }
         }
       }
+      if (print_log && num_data > loading_progress_interval) {
+        std::printf("\n");
+      }
     } else {
       const std::size_t data_dim = header[1];
       const std::size_t num_data = header[0];
@@ -326,11 +329,11 @@ int load(
           }
         }
       }
-    }
-    if (print_log) {
-      if (data_size > loading_progress_interval) {
+      if (print_log && num_data > loading_progress_interval) {
         std::printf("\n");
       }
+    }
+    if (print_log) {
       std::printf("[ANNS-DS %s]: Completed\n", __func__);
       std::fflush(stdout);
     }

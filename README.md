@@ -2,6 +2,9 @@
 
 A header only file loading library for ANNS dataset such as SIFT1B, Yandex DEEP, and etc.
 
+## Requirements
+- C++ 17 or later
+
 ## Supported file formats
 - `(num_data)(data_dim)(data_vector)*num_data`
   - e.g. BIGANN
