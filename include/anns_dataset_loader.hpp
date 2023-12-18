@@ -2,20 +2,19 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
-#include <typeinfo>
 
 namespace mtk {
 namespace anns_dataset {
 enum class format_t : std::uint32_t {
-  FORMAT_UNKNOWN = 0,
-  FORMAT_VECS = 0x1,
-  FORMAT_BIGANN = 0x2,
+  FORMAT_UNKNOWN     = 0,
+  FORMAT_VECS        = 0x1,
+  FORMAT_BIGANN      = 0x2,
   FORMAT_AUTO_DETECT = 0x4,
-  HEADER_U32 = 0x100,
-  HEADER_U64 = 0x200,
+  HEADER_U32         = 0x100,
+  HEADER_U64         = 0x200,
 
   FORMAT_MASK = 0xff,
-  HEADER_MAST = 0xff00,
+  HEADER_MASK = 0xff00,
 };
 
 inline format_t operator|(const format_t a, const format_t b) {
@@ -23,6 +22,20 @@ inline format_t operator|(const format_t a, const format_t b) {
 }
 inline format_t operator&(const format_t a, const format_t b) {
   return static_cast<format_t>(static_cast<std::uint32_t>(a) & static_cast<std::uint32_t>(b));
+}
+
+template <class HeaderT>
+inline format_t get_header_t();
+template <> inline format_t get_header_t<std::uint32_t>() {return format_t::HEADER_U32;}
+template <> inline format_t get_header_t<std::uint64_t>() {return format_t::HEADER_U64;}
+
+inline std::string get_header_type_name(const format_t format) {
+  switch (format & format_t::HEADER_MASK) {
+    case format_t::HEADER_U64: return "u64";
+    case format_t::HEADER_U32: return "u32";
+    default: break;
+  }
+  return "Unknown";
 }
 
 inline std::string get_format_str(const format_t format) {
@@ -34,18 +47,8 @@ inline std::string get_format_str(const format_t format) {
     case format_t::FORMAT_AUTO_DETECT: str = "AUTO_DETECT"; return str;
     default: break;
   }
-  switch (format & format_t::HEADER_MAST) {
-    case format_t::HEADER_U32: str += "(header=u32)"; break;
-    case format_t::HEADER_U64: str += "(header=u64)"; break;
-    default: break;
-  }
-  return str;
+  return str + "(" + get_header_type_name(format) + ")";
 }
-
-template <class HeaderT>
-inline format_t get_header_t();
-template <> inline format_t get_header_t<std::uint32_t>() {return format_t::HEADER_U32;}
-template <> inline format_t get_header_t<std::uint64_t>() {return format_t::HEADER_U64;}
 
 namespace detail {
 template <class data_T, class HEADER_T>
@@ -74,9 +77,9 @@ inline format_t detect_file_format(
       std::printf("[ANNS-DS %s]: Detecting HEADER_T...\n", __func__);
       std::fflush(stdout);
     }
-    const auto v32 = detect_file_format<T, std::uint32_t>(file_path);
+    const auto v32 = detect_file_format<T, std::uint32_t>(file_path, print_log);
     if (v32 != mtk::anns_dataset::format_t::FORMAT_UNKNOWN) return v32;
-    return detect_file_format<T, std::uint64_t>(file_path);
+    return detect_file_format<T, std::uint64_t>(file_path, print_log);
   } else {
     // Calculate file size
     ifs.seekg(0, ifs.end);
@@ -100,7 +103,7 @@ inline format_t detect_file_format(
     }
 
     if (print_log) {
-      std::printf("[ANNS-DS %s]: Detected format = %s, HEADER_T = %s\n", __func__, get_format_str(format).c_str(), typeid(HEADER_T).name());
+      std::printf("[ANNS-DS %s]: Detected format = %s\n", __func__, get_format_str(format).c_str());
       std::fflush(stdout);
     }
     return format;
@@ -121,7 +124,7 @@ inline void load_size_info(
       return;
     }
 
-    const auto detected_header_t = detected_format & format_t::HEADER_MAST;
+    const auto detected_header_t = detected_format & format_t::HEADER_MASK;
     const auto detected_format_t = detected_format & format_t::FORMAT_MASK;
 
     if (detected_header_t == format_t::HEADER_U32) {
@@ -198,7 +201,7 @@ int load(
       return 1;
     }
 
-    const auto detected_header_t = detected_format & format_t::HEADER_MAST;
+    const auto detected_header_t = detected_format & format_t::HEADER_MASK;
     const auto detected_format_t = detected_format & format_t::FORMAT_MASK;
 
     const auto f = format == format_t::FORMAT_AUTO_DETECT ? detected_format_t : format;
@@ -325,7 +328,9 @@ int load(
       }
     }
     if (print_log) {
-      std::printf("\n");
+      if (data_size > loading_progress_interval) {
+        std::printf("\n");
+      }
       std::printf("[ANNS-DS %s]: Completed\n", __func__);
       std::fflush(stdout);
     }
@@ -345,7 +350,7 @@ inline int store(
     ) {
   if constexpr (std::is_same<HEADER_T, void>::value) {
     const auto format_t = format & format_t::FORMAT_MASK;
-    const auto header_t = format & format_t::HEADER_MAST;
+    const auto header_t = format & format_t::HEADER_MASK;
     if (header_t == format_t::HEADER_U64) {
       store<T, std::uint64_t>(dst_path, data_size, data_dim, data_ptr, format_t, print_log);
     } else {
@@ -388,7 +393,7 @@ inline int store(
 
         if (print_log) {
           if (data_size > loading_progress_interval && i % (data_size / loading_progress_interval) == 0) {
-            std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__, i * 100. / data_size);
+            std::printf("[ANNS-DS %s]: Storing... (%4.2f %%)\r", __func__, i * 100. / data_size);
             std::fflush(stdout);
           }
         }
@@ -399,7 +404,9 @@ inline int store(
       return 1;
     }
     if (print_log) {
-      std::printf("\n");
+      if (data_size > loading_progress_interval) {
+        std::printf("\n");
+      }
       std::printf("[ANNS-DS %s]: Completed\n", __func__);
       std::fflush(stdout);
     }
