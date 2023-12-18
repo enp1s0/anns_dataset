@@ -10,7 +10,7 @@ int test(
 
 	auto dataset_uptr = std::unique_ptr<data_t[]>(new data_t[num_data * data_dim]);
 
-	const auto format = mtk::anns_dataset::detect_file_format<data_t>(dataset_path);
+	const auto format = mtk::anns_dataset::detect_file_format<data_t>(dataset_path, true);
 
 	if (mtk::anns_dataset::load<data_t, data_t>(dataset_uptr.get(), dataset_path, true)) {
 		std::printf("Failed @l.%d\n", __LINE__);
