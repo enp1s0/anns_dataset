@@ -64,11 +64,7 @@ inline format_t detect_file_format(
     ) {
   std::ifstream ifs(file_path);
   if (!ifs) {
-    std::fprintf(
-        stderr,
-        "No such file : %s\n",
-        file_path.c_str()
-        );
+    throw std::runtime_error("No such file: " + file_path);
   }
 
   if constexpr (std::is_same<HEADER_T, void>::value) {
@@ -118,6 +114,7 @@ inline void load_size_info(
     mtk::anns_dataset::format_t format = mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
     const bool print_log = false
     ) {
+  num_data = data_dim = 0;
   if constexpr (std::is_same<HEADER_T, void>::value) {
     const auto detected_format = detect_file_format<T, void>(file_path, print_log);
     if (detected_format == format_t::FORMAT_UNKNOWN) {
@@ -184,6 +181,10 @@ inline std::pair<std::size_t, std::size_t> load_size_info(
   std::size_t data_dim, num_data;
 
   load_size_info<T, HEADER_T>(file_path, num_data, data_dim, format, print_log);
+
+  if (data_dim == 0 && num_data == 0) {
+    throw std::runtime_error("No such file: " + file_path);
+  }
 
   return std::make_pair(num_data, data_dim);
 }
