@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <anns_dataset_loader.hpp>
+#include <anns_dataset.hpp>
 #include <cstdint>
 #include <variant>
 #include <exception>
