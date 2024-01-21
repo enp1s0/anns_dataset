@@ -1,4 +1,4 @@
-# ANNS Dataset loader
+# ANNS Dataset loader / storer
 
 A header only file loading library for ANNS dataset such as SIFT1B, Yandex DEEP, and etc.
 
@@ -16,8 +16,8 @@ The input format is automatically detected.
 ## Sample
 ```cpp
 // sample.cpp
-// g++ -I/path/to/anns_dataset_loader/include sample.cpp ...
-#include <anns_dataset_loader.hpp>
+// g++ -I/path/to/anns_dataset/include sample.cpp ...
+#include <anns_dataset.hpp>
 
 //...
 
