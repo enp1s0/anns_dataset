@@ -248,16 +248,18 @@ int load(
       }
     }
 
-    std::printf("[ANNS-DS %s]: Format = ", __func__);
-    if ((format_ & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
-      std::printf("FORMAT_BIGANN");
-    } else if ((format_ & format_t::FORMAT_VECS) != format_t::FORMAT_UNKNOWN) {
-      std::printf("FORMAT_VECS");
+    if (print_log) {
+      std::printf("[ANNS-DS %s]: Format = ", __func__);
+      if ((format_ & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
+        std::printf("FORMAT_BIGANN");
+      } else if ((format_ & format_t::FORMAT_VECS) != format_t::FORMAT_UNKNOWN) {
+        std::printf("FORMAT_VECS");
+      }
+      if (format == format_t::FORMAT_AUTO_DETECT) {
+        std::printf(" (AUTO DETECTED)");
+      }
+      std::printf("\n");
     }
-    if (format == format_t::FORMAT_AUTO_DETECT) {
-      std::printf(" (AUTO DETECTED)");
-    }
-    std::printf("\n");
 
     constexpr auto loading_progress_interval = 1000;
     if (format_ == format_t::FORMAT_VECS) {
