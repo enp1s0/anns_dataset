@@ -1,6 +1,6 @@
 #include <iostream>
 #include <memory>
-#include <anns_dataset_loader.hpp>
+#include <anns_dataset.hpp>
 
 template <class data_t>
 int test(

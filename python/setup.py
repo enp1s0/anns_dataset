@@ -35,7 +35,7 @@ setup(
     version=__version__,
     author="enp1s0",
     author_email="mutsuki@momo86.net",
-    url="https://github.com/enp1s0/anns_dataset_loader",
+    url="https://github.com/enp1s0/anns_dataset",
     description="anns_dataset",
     long_description="",
     ext_modules=ext_modules,
