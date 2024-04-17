@@ -6,7 +6,7 @@ template <class data_t>
 int test(
 	const std::string dataset_path
 	) {
-	const auto [num_data, data_dim] = mtk::anns_dataset::load_size_info<data_t>(dataset_path, mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT, true);
+	const auto [num_data, data_dim] = mtk::anns_dataset::load_size_info<data_t>(dataset_path, true, mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT);
 
 	auto dataset_uptr = std::unique_ptr<data_t[]>(new data_t[num_data * data_dim]);
 
