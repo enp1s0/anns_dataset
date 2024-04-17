@@ -59,13 +59,10 @@ bool is_vecs  (const HEADER_T header[2], const std::size_t file_size) {return fi
 
 template <class T, class HEADER_T = void>
 inline format_t detect_file_format(
-    const std::string file_path,
+    std::ifstream& ifs,
     const bool print_log = false
     ) {
-  std::ifstream ifs(file_path);
-  if (!ifs) {
-    throw std::runtime_error("No such file: " + file_path);
-  }
+  ifs.seekg(0, ifs.beg);
 
   if constexpr (std::is_same<HEADER_T, void>::value) {
     // HEADER_T auto detect
@@ -73,9 +70,9 @@ inline format_t detect_file_format(
       std::printf("[ANNS-DS %s]: Detecting HEADER_T...\n", __func__);
       std::fflush(stdout);
     }
-    const auto v32 = detect_file_format<T, std::uint32_t>(file_path, print_log);
+    const auto v32 = detect_file_format<T, std::uint32_t>(ifs, print_log);
     if (v32 != mtk::anns_dataset::format_t::FORMAT_UNKNOWN) return v32;
-    return detect_file_format<T, std::uint64_t>(file_path, print_log);
+    return detect_file_format<T, std::uint64_t>(ifs, print_log);
   } else {
     // Calculate file size
     ifs.seekg(0, ifs.end);
@@ -84,7 +81,6 @@ inline format_t detect_file_format(
 
     HEADER_T header[2];
     ifs.read(reinterpret_cast<char*>(header), sizeof(header));
-    ifs.close();
 
     const auto is_bigann = detail::is_bigann<T, HEADER_T>(header, file_size);
     const auto is_vecs   = detail::is_vecs  <T, HEADER_T>(header, file_size);
@@ -107,16 +103,32 @@ inline format_t detect_file_format(
 }
 
 template <class T, class HEADER_T = void>
-inline void load_size_info(
+inline format_t detect_file_format(
     const std::string file_path,
-    std::size_t& num_data,
-    std::size_t& data_dim,
-    mtk::anns_dataset::format_t format = mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
     const bool print_log = false
     ) {
+  std::ifstream ifs(file_path);
+  if (!ifs) {
+    throw std::runtime_error("[ANNS-DS " + std::string(__func__) + "]: No such file: " + file_path);
+  }
+  const auto format = detect_file_format<T, HEADER_T>(ifs, print_log);
+
+  ifs.close();
+  return format;
+}
+
+template <class T, class HEADER_T = void>
+inline void load_size_info(
+    std::ifstream& ifs,
+    std::size_t& num_data,
+    std::size_t& data_dim,
+    const bool print_log = false,
+    mtk::anns_dataset::format_t format = mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT
+    ) {
+  ifs.seekg(0, ifs.beg);
   num_data = data_dim = 0;
   if constexpr (std::is_same<HEADER_T, void>::value) {
-    const auto detected_format = detect_file_format<T, void>(file_path, print_log);
+    const auto detected_format = detect_file_format<T, void>(ifs, print_log);
     if (detected_format == format_t::FORMAT_UNKNOWN) {
       return;
     }
@@ -125,22 +137,13 @@ inline void load_size_info(
     const auto detected_format_t = detected_format & format_t::FORMAT_MASK;
 
     if (detected_header_t == format_t::HEADER_U32) {
-      load_size_info<T, std::uint32_t>(file_path, num_data, data_dim, detected_format_t, print_log);
+      load_size_info<T, std::uint32_t>(ifs, num_data, data_dim, print_log, detected_format_t);
     } else {
-      load_size_info<T, std::uint64_t>(file_path, num_data, data_dim, detected_format_t, print_log);
+      load_size_info<T, std::uint64_t>(ifs, num_data, data_dim, print_log, detected_format_t);
     }
   } else {
     num_data = 0;
     data_dim = 0;
-
-    std::ifstream ifs(file_path);
-    if (!ifs) {
-      std::fprintf(
-          stderr,
-          "No such file : %s\n",
-          file_path.c_str()
-          );
-    }
 
     if (print_log) {
       std::printf("[ANNS-DS %s]: Given format / mode = %s\n", __func__, get_format_str(format).c_str());
@@ -156,7 +159,7 @@ inline void load_size_info(
     ifs.read(reinterpret_cast<char*>(header), sizeof(header));
 
     if (format == format_t::FORMAT_AUTO_DETECT) {
-      if ((format = detect_file_format<T, HEADER_T>(file_path, print_log)) == format_t::FORMAT_UNKNOWN) {
+      if ((format = detect_file_format<T, HEADER_T>(ifs, print_log)) == format_t::FORMAT_UNKNOWN) {
         return;
       }
     }
@@ -168,22 +171,39 @@ inline void load_size_info(
       data_dim = header[1];
       num_data = header[0];
     }
-    ifs.close();
   }
+}
+
+template <class T, class HEADER_T = void>
+inline void load_size_info(
+    const std::string file_path,
+    std::size_t& num_data,
+    std::size_t& data_dim,
+    const bool print_log = false,
+    mtk::anns_dataset::format_t format = mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT
+    ) {
+
+  std::ifstream ifs(file_path);
+  if (!ifs) {
+    throw std::runtime_error("[ANNS-DS " + std::string(__func__) + "]: No such file: " + file_path);
+  }
+  load_size_info<T, HEADER_T>(ifs, num_data, data_dim, print_log, format);
+
+  ifs.close();
 }
 
 template <class T, class HEADER_T = void>
 inline std::pair<std::size_t, std::size_t> load_size_info(
     const std::string file_path,
-    const format_t format = format_t::FORMAT_AUTO_DETECT,
-    const bool print_log = false
+    const bool print_log = false,
+    const format_t format = format_t::FORMAT_AUTO_DETECT
     ) {
   std::size_t data_dim, num_data;
 
-  load_size_info<T, HEADER_T>(file_path, num_data, data_dim, format, print_log);
+  load_size_info<T, HEADER_T>(file_path, num_data, data_dim, print_log, format);
 
   if (data_dim == 0 && num_data == 0) {
-    throw std::runtime_error("No such file: " + file_path);
+    throw std::runtime_error("[ANNS-DS " + std::string(__func__) + "]: No such file: " + file_path);
   }
 
   return std::make_pair(num_data, data_dim);
@@ -214,12 +234,7 @@ int load(
   } else {
     std::ifstream ifs(file_path);
     if (!ifs) {
-      std::fprintf(
-          stderr,
-          "No such file : %s\n",
-          file_path.c_str()
-          );
-      return 1;
+      throw std::runtime_error("[ANNS-DS " + std::string(__func__) + "]: No such file: " + file_path);
     }
 
     // Calculate file size
@@ -233,19 +248,9 @@ int load(
       std::fflush(stdout);
     }
 
-    HEADER_T header[2];
-    ifs.read(reinterpret_cast<char*>(header), sizeof(header));
-
     format_t format_ = format;
     if (format == format_t::FORMAT_AUTO_DETECT) {
-      if (detail::is_bigann<T, HEADER_T>(header, file_size)) {
-        format_ = format_t::FORMAT_BIGANN;
-      } else if (detail::is_vecs<T, HEADER_T>(header, file_size)) {
-        format_ = format_t::FORMAT_VECS;
-      } else {
-        format_ = format_t::FORMAT_UNKNOWN;
-        return 1;
-      }
+      format_ = detect_file_format<T, HEADER_T>(ifs, print_log);
     }
 
     if (print_log) {
@@ -261,10 +266,12 @@ int load(
       std::printf("\n");
     }
 
+    std::size_t num_data, data_dim;
+    load_size_info<T, HEADER_T>(ifs, num_data, data_dim, print_log);
+    ifs.seekg(0, ifs.beg);
+
     constexpr auto loading_progress_interval = 1000;
     if (format_ == format_t::FORMAT_VECS) {
-      const std::size_t data_dim = header[0];
-      const std::size_t num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
       if (print_log) {
         std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__, data_dim);
         std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
@@ -302,8 +309,6 @@ int load(
         std::printf("\n");
       }
     } else {
-      const std::size_t data_dim = header[1];
-      const std::size_t num_data = header[0];
       if (print_log) {
         std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__, data_dim);
         std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
@@ -334,6 +339,7 @@ int load(
       }
       if (print_log && num_data > loading_progress_interval) {
         std::printf("\n");
+        std::fflush(stdout);
       }
     }
     if (print_log) {
