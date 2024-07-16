@@ -12,4 +12,4 @@ unittest:
     - apt update && apt install -y --no-install-recommends build-essential
   script:
     - cd test && make
-    - ./test/anns-ds.test
+    - ./anns-ds.test
