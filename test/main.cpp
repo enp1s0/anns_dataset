@@ -83,6 +83,29 @@ void test_core(const std::size_t dataset_size, const std::uint32_t dataset_dim,
     }
     EXPECTED_TRUE(!error, test_name, "Check dataset data");
   }
+
+  // Partial load test
+  {
+    const std::size_t offset = dataset_size / 10;
+    const std::size_t size = dataset_size / 10;
+
+    const auto dataset_ld = dataset_dim;
+    std::vector<data_t> dataset(dataset_size * dataset_ld);
+    mtk::anns_dataset::load(
+        dataset.data(), file_name, false,
+        mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
+        mtk::anns_dataset::range_t{.offset = offset, .size = size});
+
+    // check data
+    bool error = false;
+    for (std::size_t i = 0; i < size; i++) {
+      for (std::uint32_t j = 0; j < dataset_dim; j++) {
+        error = error || (dataset[i * dataset_ld + j] !=
+                          src_dataset[(offset + i) * src_dataset_ld + j]);
+      }
+    }
+    EXPECTED_TRUE(!error, test_name, "Check partial load dataset data");
+  }
 }
 
 template <class data_t, class index_t> void test() {
