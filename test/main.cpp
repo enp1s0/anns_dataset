@@ -13,6 +13,7 @@ template <> const std::string to_str<std::uint8_t>() { return "U8"; }
 
 std::uint32_t num_processed_test = 0;
 std::uint32_t num_passed_test = 0;
+std::vector<std::string> failed_test_list;
 int check_expected_true(const bool v, const std::string test_name,
                         const std::string case_name) {
   std::printf("[TEST %u] >> %s (%s)\n", num_processed_test, case_name.c_str(),
@@ -22,6 +23,8 @@ int check_expected_true(const bool v, const std::string test_name,
     num_passed_test++;
   } else {
     std::printf("[TEST %u] << FAILED\n", num_processed_test);
+    failed_test_list.push_back("[" + std::to_string(num_processed_test) + "] " +
+                               test_name + " (" + case_name + ")");
   }
   num_processed_test++;
   return !v;
@@ -80,6 +83,29 @@ void test_core(const std::size_t dataset_size, const std::uint32_t dataset_dim,
     }
     EXPECTED_TRUE(!error, test_name, "Check dataset data");
   }
+
+  // Partial load test
+  {
+    const std::size_t offset = dataset_size / 10;
+    const std::size_t size = dataset_size / 10;
+
+    const auto dataset_ld = dataset_dim;
+    std::vector<data_t> dataset(dataset_size * dataset_ld);
+    mtk::anns_dataset::load(
+        dataset.data(), file_name, false,
+        mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
+        mtk::anns_dataset::range_t{.offset = offset, .size = size});
+
+    // check data
+    bool error = false;
+    for (std::size_t i = 0; i < size; i++) {
+      for (std::uint32_t j = 0; j < dataset_dim; j++) {
+        error = error || (dataset[i * dataset_ld + j] !=
+                          src_dataset[(offset + i) * src_dataset_ld + j]);
+      }
+    }
+    EXPECTED_TRUE(!error, test_name, "Check partial load dataset data");
+  }
 }
 
 template <class data_t, class index_t> void test() {
@@ -103,6 +129,12 @@ int main() {
   test<std::int8_t, std::uint32_t>();
   test<std::int8_t, std::uint64_t>();
   std::printf("%5u / %5u PASSED\n", num_passed_test, num_processed_test);
+  if (!failed_test_list.empty()) {
+    std::printf("FAILED TEST(S)\n");
+    for (const auto &l : failed_test_list) {
+      std::cout << l << std::endl;
+    }
+  }
 
   return !(num_processed_test == num_passed_test);
 }
