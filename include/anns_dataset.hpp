@@ -308,7 +308,7 @@ int load(MEM_T *const ptr, const std::string file_path,
       // Set load offset
       const auto num_load_vecs = range.size == 0 ? num_data : range.size;
       ifs.seekg(range.offset * (data_dim * sizeof(T) + sizeof(HEADER_T)),
-                ifs.cur);
+                std::ios_base::beg);
       assert(num_load_vecs + range.offset <= num_data);
 
       // Load
@@ -357,7 +357,7 @@ int load(MEM_T *const ptr, const std::string file_path,
 
       // Set load offset
       const auto num_load_vecs = range.size == 0 ? num_data : range.size;
-      ifs.seekg(range.offset * data_dim * sizeof(T), ifs.cur);
+      ifs.seekg(range.offset * data_dim * sizeof(T), std::ios_base::cur);
       assert(num_load_vecs + range.offset <= num_data);
 
       // Load
