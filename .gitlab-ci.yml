@@ -9,7 +9,7 @@ precommit:
 unittest:
   image: ubuntu:jammy
   before_script:
-    - apt update && apt install -y --no-install-recommends make gcc
+    - apt update && apt install -y --no-install-recommends build-essential
   script:
     - cd test && make
     - ./test/anns-ds.test
