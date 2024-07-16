@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <cassert>
 
 namespace mtk {
 namespace anns_dataset {
@@ -55,7 +56,12 @@ template <class data_T, class HEADER_T>
 bool is_bigann(const HEADER_T header[2], const std::size_t file_size) {return static_cast<std::size_t>(header[0]) * header[1] * sizeof(data_T) + 2 * sizeof(HEADER_T) == file_size;}
 template <class data_T, class HEADER_T>
 bool is_vecs  (const HEADER_T header[2], const std::size_t file_size) {return file_size % static_cast<std::size_t>(sizeof(HEADER_T) + header[0] * sizeof(data_T)) == 0;}
-} // unnamed namespace
+} // namespace detail
+
+struct range_t {
+  std::size_t offset;
+  std::size_t size;
+};
 
 template <class T, class HEADER_T = void>
 inline format_t detect_file_format(
@@ -194,7 +200,8 @@ int load(
     MEM_T* const ptr,
     const std::string file_path,
     const bool print_log = false,
-    const format_t format = format_t::FORMAT_AUTO_DETECT
+    const format_t format = format_t::FORMAT_AUTO_DETECT,
+    const range_t range = range_t{.offset = 0, .size = 0}
     ) {
   if constexpr (std::is_same<HEADER_T, void>::value) {
     const auto detected_format = detect_file_format<T, void>(file_path, print_log);
@@ -207,9 +214,9 @@ int load(
 
     const auto f = format == format_t::FORMAT_AUTO_DETECT ? detected_format_t : format;
     if (detected_header_t == format_t::HEADER_U32) {
-      load<MEM_T, T, std::uint32_t>(ptr, file_path, print_log, f);
+      load<MEM_T, T, std::uint32_t>(ptr, file_path, print_log, f, range);
     } else {
-      load<MEM_T, T, std::uint64_t>(ptr, file_path, print_log, f);
+      load<MEM_T, T, std::uint64_t>(ptr, file_path, print_log, f, range);
     }
   } else {
     std::ifstream ifs(file_path);
@@ -276,8 +283,13 @@ int load(
         buffer = std::unique_ptr<T[]>(new T[data_dim]);
       }
 
-      ifs.seekg(0, ifs.beg);
-      for (HEADER_T i = 0; i < num_data; i++) {
+      // Set load offset
+      const auto num_load_vecs = range.size == 0 ? num_data : range.size;
+      ifs.seekg(range.offset * (data_dim * sizeof(T) + sizeof(HEADER_T)), ifs.cur);
+      assert(num_load_vecs + range.offset <= num_data);
+
+      // Load
+      for (HEADER_T i = 0; i < num_load_vecs; i++) {
         HEADER_T tmp;
         ifs.read(reinterpret_cast<char*>(&tmp), sizeof(HEADER_T));
 
@@ -315,7 +327,13 @@ int load(
         buffer = std::unique_ptr<T[]>(new T[data_dim]);
       }
 
-      for (HEADER_T i = 0; i < num_data; i++) {
+      // Set load offset
+      const auto num_load_vecs = range.size == 0 ? num_data : range.size;
+      ifs.seekg(range.offset * data_dim * sizeof(T), ifs.cur);
+      assert(num_load_vecs + range.offset <= num_data);
+
+      // Load
+      for (HEADER_T i = 0; i < num_load_vecs; i++) {
         const auto offset = static_cast<std::uint64_t>(i) * data_dim;
         if constexpr (std::is_same<T, MEM_T>::value) {
           ifs.read(reinterpret_cast<char*>(ptr + offset), sizeof(T) * data_dim);
