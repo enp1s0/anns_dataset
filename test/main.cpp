@@ -13,6 +13,7 @@ template <> const std::string to_str<std::uint8_t>() { return "U8"; }
 
 std::uint32_t num_processed_test = 0;
 std::uint32_t num_passed_test = 0;
+std::vector<std::string> failed_test_list;
 int check_expected_true(const bool v, const std::string test_name,
                         const std::string case_name) {
   std::printf("[TEST %u] >> %s (%s)\n", num_processed_test, case_name.c_str(),
@@ -22,6 +23,8 @@ int check_expected_true(const bool v, const std::string test_name,
     num_passed_test++;
   } else {
     std::printf("[TEST %u] << FAILED\n", num_processed_test);
+    failed_test_list.push_back("[" + std::to_string(num_processed_test) + "] " +
+                               test_name + " (" + case_name + ")");
   }
   num_processed_test++;
   return !v;
@@ -103,6 +106,12 @@ int main() {
   test<std::int8_t, std::uint32_t>();
   test<std::int8_t, std::uint64_t>();
   std::printf("%5u / %5u PASSED\n", num_passed_test, num_processed_test);
+  if (!failed_test_list.empty()) {
+    std::printf("FAILED TEST(S)\n");
+    for (const auto &l : failed_test_list) {
+      std::cout << l << std::endl;
+    }
+  }
 
   return !(num_processed_test == num_passed_test);
 }
