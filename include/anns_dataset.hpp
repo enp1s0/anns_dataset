@@ -293,12 +293,6 @@ int load(MEM_T *const ptr, const std::string file_path,
       const std::size_t data_dim = header[0];
       const std::size_t num_data =
           file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
-      if (print_log) {
-        std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__,
-                    data_dim);
-        std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
-        std::fflush(stdout);
-      }
 
       std::unique_ptr<T[]> buffer;
       if constexpr (!std::is_same<T, MEM_T>::value) {
@@ -310,6 +304,15 @@ int load(MEM_T *const ptr, const std::string file_path,
       ifs.seekg(range.offset * (data_dim * sizeof(T) + sizeof(HEADER_T)),
                 std::ios_base::beg);
       assert(num_load_vecs + range.offset <= num_data);
+
+      if (print_log) {
+        std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__,
+                    data_dim);
+        std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
+        std::printf("[ANNS-DS %s]: Num load data = %zu, offset = %zu\n",
+                    __func__, num_load_vecs, range.offset);
+        std::fflush(stdout);
+      }
 
       // Load
       for (HEADER_T i = 0; i < num_load_vecs; i++) {
@@ -329,26 +332,20 @@ int load(MEM_T *const ptr, const std::string file_path,
         }
 
         if (print_log) {
-          if (num_data > loading_progress_interval &&
-              i % (num_data / loading_progress_interval) == 0) {
+          if (num_load_vecs > loading_progress_interval &&
+              i % (num_load_vecs / loading_progress_interval) == 0) {
             std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__,
-                        i * 100. / num_data);
+                        i * 100. / num_load_vecs);
             std::fflush(stdout);
           }
         }
       }
-      if (print_log && num_data > loading_progress_interval) {
+      if (print_log && num_load_vecs > loading_progress_interval) {
         std::printf("\n");
       }
     } else {
       const std::size_t data_dim = header[1];
       const std::size_t num_data = header[0];
-      if (print_log) {
-        std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__,
-                    data_dim);
-        std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
-        std::fflush(stdout);
-      }
 
       std::unique_ptr<T[]> buffer;
       if constexpr (!std::is_same<T, MEM_T>::value) {
@@ -359,6 +356,15 @@ int load(MEM_T *const ptr, const std::string file_path,
       const auto num_load_vecs = range.size == 0 ? num_data : range.size;
       ifs.seekg(range.offset * data_dim * sizeof(T), std::ios_base::cur);
       assert(num_load_vecs + range.offset <= num_data);
+
+      if (print_log) {
+        std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__,
+                    data_dim);
+        std::printf("[ANNS-DS %s]: Num data = %zu\n", __func__, num_data);
+        std::printf("[ANNS-DS %s]: Num load data = %zu, offset = %zu\n",
+                    __func__, num_load_vecs, range.offset);
+        std::fflush(stdout);
+      }
 
       // Load
       for (HEADER_T i = 0; i < num_load_vecs; i++) {
@@ -374,15 +380,15 @@ int load(MEM_T *const ptr, const std::string file_path,
           }
         }
         if (print_log) {
-          if (num_data > loading_progress_interval &&
-              i % (num_data / loading_progress_interval) == 0) {
+          if (num_load_vecs > loading_progress_interval &&
+              i % (num_load_vecs / loading_progress_interval) == 0) {
             std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__,
-                        i * 100. / num_data);
+                        i * 100. / num_load_vecs);
             std::fflush(stdout);
           }
         }
       }
-      if (print_log && num_data > loading_progress_interval) {
+      if (print_log && num_load_vecs > loading_progress_interval) {
         std::printf("\n");
       }
     }
