@@ -401,86 +401,122 @@ int load(MEM_T *const ptr, const std::string file_path,
   return 0;
 }
 
-template <class T, class HEADER_T = void>
-inline int store(const std::string dst_path, const std::size_t data_size,
-                 const std::size_t data_dim, const T *const data_ptr,
-                 const format_t format, const bool print_log = false) {
-  if constexpr (std::is_same<HEADER_T, void>::value) {
+template <class T> class store_stream {
+  const std::size_t dataset_dim;
+  format_t format;
+  const bool print_log;
+
+  std::ofstream ofs;
+  std::size_t current_dataset_size_ = 0;
+
+public:
+  inline store_stream(const std::string dst_path, const std::size_t data_dim,
+                      const format_t format, const bool print_log = false)
+      : dataset_dim(data_dim), format(format), print_log(print_log) {
+    ofs.open(dst_path, std::ios::binary);
+
     const auto format_t = format & format_t::FORMAT_MASK;
     const auto header_t = format & format_t::HEADER_MASK;
-    if (header_t == format_t::HEADER_U64) {
-      store<T, std::uint64_t>(dst_path, data_size, data_dim, data_ptr, format_t,
-                              print_log);
-    } else {
-      store<T, std::uint32_t>(dst_path, data_size, data_dim, data_ptr, format_t,
-                              print_log);
+    if (format_t == mtk::anns_dataset::format_t::FORMAT_UNKNOWN) {
+      throw std::runtime_error("[ANNS-DS store]: Unknown format (" +
+                               get_format_str(format) + ")");
     }
-  } else {
-    std::ofstream ofs(dst_path);
-    if (!ofs) {
-      return 1;
+    if (header_t == mtk::anns_dataset::format_t::FORMAT_UNKNOWN) {
+      this->format = this->format | mtk::anns_dataset::format_t::HEADER_U32;
+      if (print_log) {
+        std::printf(
+            "[ANNS-DS store]: Header type was not specified. Set to U32.\n");
+      }
     }
+
     if (print_log) {
-      std::printf("[ANNS-DS %s]: Dataset path = %s\n", __func__,
-                  dst_path.c_str());
-      std::printf("[ANNS-DS %s]: Dataset size = %zu\n", __func__, data_size);
-      std::printf("[ANNS-DS %s]: Dataset dimension = %zu\n", __func__,
-                  data_dim);
+      std::printf("[ANNS-DS store]: Dataset path = %s\n", dst_path.c_str());
+      std::printf("[ANNS-DS store]: Dataset dimension = %zu\n", data_dim);
+      std::fflush(stdout);
+    }
+  }
+
+  template <class HEADER_T>
+  inline void _append_core(const T *const dataset_ptr, const std::size_t ldd,
+                           const std::size_t append_size) {
+    current_dataset_size_ += append_size;
+    const HEADER_T current_dataset_size = current_dataset_size_;
+
+    if (print_log) {
+      std::printf(
+          "[ANNS-DS store]: Dataset append size = %zu, total size = %zu\n",
+          append_size, current_dataset_size_);
       std::fflush(stdout);
     }
 
     constexpr auto loading_progress_interval = 1000;
     if ((format & format_t::FORMAT_VECS) != format_t::FORMAT_UNKNOWN) {
-      for (std::size_t i = 0; i < data_size; i++) {
-        const HEADER_T d = data_dim;
+      for (std::size_t i = 0; i < append_size; i++) {
+        const HEADER_T d = dataset_dim;
         ofs.write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
-        ofs.write(reinterpret_cast<const char *>(data_ptr + i * data_dim),
-                  sizeof(T) * data_dim);
+        ofs.write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
+                  sizeof(T) * dataset_dim);
 
         if (print_log) {
-          if (data_size > loading_progress_interval &&
-              i % (data_size / loading_progress_interval) == 0) {
-            std::printf("[ANNS-DS %s]: Loading... (%4.2f %%)\r", __func__,
-                        i * 100. / data_size);
+          if (append_size > loading_progress_interval &&
+              i % (append_size / loading_progress_interval) == 0) {
+            std::printf("[ANNS-DS store]: Loading... (%4.2f %%)\r",
+                        i * 100. / append_size);
             std::fflush(stdout);
           }
         }
       }
     } else if ((format & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
-      const HEADER_T d = data_dim;
-      const HEADER_T s = data_size;
+      const HEADER_T d = dataset_dim;
+      const HEADER_T s = current_dataset_size;
+      ofs.seekp(0, ofs.beg);
       ofs.write(reinterpret_cast<const char *>(&s), sizeof(HEADER_T));
       ofs.write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
 
-      for (std::size_t i = 0; i < data_size; i++) {
-        ofs.write(reinterpret_cast<const char *>(data_ptr + i * data_dim),
-                  sizeof(T) * data_dim);
+      ofs.seekp(0, ofs.end);
+      for (std::size_t i = 0; i < append_size; i++) {
+        ofs.write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
+                  sizeof(T) * dataset_dim);
 
         if (print_log) {
-          if (data_size > loading_progress_interval &&
-              i % (data_size / loading_progress_interval) == 0) {
-            std::printf("[ANNS-DS %s]: Storing... (%4.2f %%)\r", __func__,
-                        i * 100. / data_size);
+          if (append_size > loading_progress_interval &&
+              i % (append_size / loading_progress_interval) == 0) {
+            std::printf("[ANNS-DS store]: Storing... (%4.2f %%)\r",
+                        i * 100. / append_size);
             std::fflush(stdout);
           }
         }
       }
-    } else {
-      std::printf("[ANNS-DS %s]: Unknown format (%s)\n", __func__,
-                  get_format_str(format).c_str());
-      ofs.close();
-      return 1;
     }
     if (print_log) {
-      if (data_size > loading_progress_interval) {
+      if (append_size > loading_progress_interval) {
         std::printf("\n");
       }
-      std::printf("[ANNS-DS %s]: Completed\n", __func__);
+      std::printf("[ANNS-DS store]: Completed\n");
       std::fflush(stdout);
     }
-
-    ofs.close();
   }
+  inline void append(const T *const dataset_ptr, const std::size_t ldd,
+                     const std::size_t append_size) {
+    const auto header_t = format & format_t::HEADER_MASK;
+    if (header_t == format_t::HEADER_U64) {
+      this->template _append_core<std::uint64_t>(dataset_ptr, ldd, append_size);
+    } else {
+      this->template _append_core<std::uint32_t>(dataset_ptr, ldd, append_size);
+    }
+  }
+
+  inline void close() { ofs.close(); }
+};
+
+template <class T>
+inline int store(const std::string dst_path, const std::size_t data_size,
+                 const std::size_t data_dim, const T *const data_ptr,
+                 const format_t format, const bool print_log = false) {
+  store_stream<T> ss(dst_path, data_dim, format, print_log);
+  ss.append(data_ptr, data_dim, data_size);
+  ss.close();
+
   return 0;
 }
 } // namespace anns_dataset
