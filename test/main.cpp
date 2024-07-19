@@ -90,7 +90,7 @@ void test_core(const std::size_t dataset_size, const std::uint32_t dataset_dim,
     const std::size_t size = dataset_size / 10;
 
     const auto dataset_ld = dataset_dim;
-    std::vector<data_t> dataset(dataset_size * dataset_ld);
+    std::vector<data_t> dataset(size * dataset_ld);
     mtk::anns_dataset::load(
         dataset.data(), file_name, false,
         mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
@@ -105,6 +105,33 @@ void test_core(const std::size_t dataset_size, const std::uint32_t dataset_dim,
       }
     }
     EXPECTED_TRUE(!error, test_name, "Check partial load dataset data");
+  }
+
+  // Store stream
+  {
+    const std::size_t offset = dataset_size / 10;
+
+    mtk::anns_dataset::store_stream<data_t> ss(file_name, dataset_dim,
+                                               file_format);
+    ss.append(src_dataset.data(), src_dataset_ld, offset);
+    ss.append(src_dataset.data() + offset * src_dataset_ld, src_dataset_ld,
+              dataset_size - offset);
+    ss.close();
+
+    const auto dataset_ld = dataset_dim;
+    std::vector<data_t> dataset(dataset_size * dataset_ld);
+    mtk::anns_dataset::load(dataset.data(), file_name, false,
+                            mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT);
+
+    // check data
+    bool error = false;
+    for (std::size_t i = 0; i < dataset_size; i++) {
+      for (std::uint32_t j = 0; j < dataset_dim; j++) {
+        error = error || (dataset[i * dataset_ld + j] !=
+                          src_dataset[i * src_dataset_ld + j]);
+      }
+    }
+    EXPECTED_TRUE(!error, test_name, "Check store stream");
   }
 }
 
