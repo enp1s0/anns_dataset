@@ -109,13 +109,16 @@ void test_core(const std::size_t dataset_size, const std::uint32_t dataset_dim,
 
   // Store stream
   {
-    const std::size_t offset = dataset_size / 10;
-
     mtk::anns_dataset::store_stream<data_t> ss(file_name, dataset_dim,
                                                file_format);
-    ss.append(src_dataset.data(), src_dataset_ld, offset);
-    ss.append(src_dataset.data() + offset * src_dataset_ld, src_dataset_ld,
-              dataset_size - offset);
+    const std::size_t num_split = 10;
+    for (std::size_t i = 0; i < num_split; i++) {
+      const auto offset = i * dataset_size / num_split;
+      const auto size = (i + 1) * dataset_size / num_split - offset;
+
+      ss.append(src_dataset.data() + offset * src_dataset_ld, src_dataset_ld,
+                size);
+    }
     ss.close();
 
     const auto dataset_ld = dataset_dim;
