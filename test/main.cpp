@@ -1,4 +1,7 @@
 #include <anns_dataset.hpp>
+#include <statistic.hpp>
+
+#include <cstdint>
 #include <iostream>
 #include <vector>
 
@@ -14,6 +17,7 @@ template <> const std::string to_str<std::uint8_t>() { return "U8"; }
 std::uint32_t num_processed_test = 0;
 std::uint32_t num_passed_test = 0;
 std::vector<std::string> failed_test_list;
+
 int check_expected_true(const bool v, const std::string test_name,
                         const std::string case_name) {
   std::printf("[TEST %u] >> %s (%s)\n", num_processed_test, case_name.c_str(),
@@ -151,6 +155,31 @@ template <class data_t, class index_t> void test() {
   }
 }
 
+template <class data_t>
+void stats_test_core(const std::size_t dataset_size,
+                     const std::size_t dataset_dim) {
+  const std::size_t dataset_ld = dataset_dim + 1;
+  std::vector<data_t> dataset(dataset_size * dataset_ld);
+  for (std::size_t i = 0; i < dataset_size; i++) {
+    for (std::size_t j = 0; j < dataset_dim; j++) {
+      dataset[i * dataset_ld + j] = (i * 13 + j + 11) % 17;
+    }
+  }
+  mtk::anns_dataset::print_dimensionwise_distribution(
+      dataset.data(), dataset_ld, dataset_size, dataset_dim);
+  num_passed_test++;
+  num_processed_test++;
+}
+
+template <class data_t> void stats_test() {
+  for (const auto &dataset_shape :
+       std::vector<std::pair<std::uint32_t, std::size_t>>{{15u, 1000lu},
+                                                          {32u, 10000lu}}) {
+    stats_test_core<data_t>(std::get<1>(dataset_shape),
+                            std::get<0>(dataset_shape));
+  }
+}
+
 int main() {
   test<float, std::uint32_t>();
   test<float, std::uint64_t>();
@@ -158,6 +187,9 @@ int main() {
   test<std::uint8_t, std::uint64_t>();
   test<std::int8_t, std::uint32_t>();
   test<std::int8_t, std::uint64_t>();
+  stats_test<float>();
+  stats_test<std::int8_t>();
+  stats_test<std::uint8_t>();
   std::printf("%5u / %5u PASSED\n", num_passed_test, num_processed_test);
   if (!failed_test_list.empty()) {
     std::printf("FAILED TEST(S)\n");

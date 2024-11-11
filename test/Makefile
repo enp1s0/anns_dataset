@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++17 -Wall -I../include
+CXXFLAGS=-std=c++17 -Wall -I../include -fopenmp
 
 TARGET=anns-ds.test
 
