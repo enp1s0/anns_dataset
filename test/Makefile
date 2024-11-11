@@ -3,7 +3,7 @@ CXXFLAGS=-std=c++17 -Wall -I../include -fopenmp
 
 TARGET=anns-ds.test
 
-$(TARGET):main.cpp ../include/anns_dataset.hpp
+$(TARGET):main.cpp ../include/anns_dataset.hpp ../include/statistic.hpp
 	$(CXX) $< -o $@ $(CXXFLAGS)
 
 clean:

@@ -166,7 +166,7 @@ void stats_test_core(const std::size_t dataset_size,
     }
   }
   mtk::anns_dataset::print_dimensionwise_distribution(
-      dataset.data(), dataset_ld, dataset_size, dataset_dim);
+      dataset.data(), dataset_ld, dataset_size, dataset_dim, 40);
   num_passed_test++;
   num_processed_test++;
 }
