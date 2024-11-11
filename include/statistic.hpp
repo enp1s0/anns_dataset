@@ -9,7 +9,7 @@
 namespace mtk::anns_dataset {
 namespace detail {
 template <class T> struct stat {
-  T min = std::numeric_limits<T>::max(), max = -std::numeric_limits<T>::max();
+  T min = std::numeric_limits<T>::max(), max = std::numeric_limits<T>::lowest();
   double avg = 0;
   double var = 0;
 };
@@ -65,7 +65,7 @@ inline void print_dimensionwise_distribution(
     }
   }
   for (std::size_t j = 0; j < dataset_dim; j++) {
-    stats[j].var /= (dataset_size - 1);
+    stats[j].var = std::sqrt(stats[j].var) / (dataset_size - 1);
   }
 
   // Print the result
@@ -73,18 +73,20 @@ inline void print_dimensionwise_distribution(
       std::max(std::log10(dataset_dim) + 1, 3.);
 
   if (!graph_width) {
-    std::printf("%*s | %7s, %7s, %7s, %7s\n", dimension_format_width, "dim",
+    std::printf("%*s | %9s, %9s, %9s, %9s\n", dimension_format_width, "dim",
                 "avg", "var", "min", "max");
-    for (std::size_t i = 0; i < dataset_size; i++) {
-      std::printf("%*ld | %+4e, %+4e, %+4e, %+4e\n", stats[i].avg, stats[i].var,
+    for (std::size_t i = 0; i < dataset_dim; i++) {
+      std::printf("%*lu | %+.2e, %+.2e, %+.2e, %+.2e\n", dimension_format_width,
+                  i, stats[i].avg, stats[i].var,
                   static_cast<double>(stats[i].min),
                   static_cast<double>(stats[i].max));
     }
   } else {
-    std::printf("%*s | %7s, %7s, %7s, %7s\n", dimension_format_width, "dim",
+    std::printf("%*s | %9s, %9s, %9s, %9s\n", dimension_format_width, "dim",
                 "avg", "var", "min", "max");
-    for (std::size_t i = 0; i < dataset_size; i++) {
-      std::printf("%*ld | %+4e, %+4e, %+4e, %+4e\n", stats[i].avg, stats[i].var,
+    for (std::size_t i = 0; i < dataset_dim; i++) {
+      std::printf("%*lu | %+.2e, %+.2e, %+.2e, %+.2e\n", dimension_format_width,
+                  i, stats[i].avg, stats[i].var,
                   static_cast<double>(stats[i].min),
                   static_cast<double>(stats[i].max));
     }
