@@ -82,13 +82,42 @@ inline void print_dimensionwise_distribution(
                   static_cast<double>(stats[i].max));
     }
   } else {
-    std::printf("%*s | %9s, %9s, %9s, %9s\n", dimension_format_width, "dim",
+    // Calc max abs
+    double max_abs = 0;
+    for (std::size_t j = 0; j < dataset_dim; j++) {
+      max_abs = std::max(max_abs,
+                         std::max(std::abs(static_cast<double>(stats[j].max)),
+                                  std::abs(static_cast<double>(stats[j].min))));
+    }
+
+    std::printf("%*s | %9s, %9s, %9s, %9s | ", dimension_format_width, "dim",
                 "avg", "var", "min", "max");
+    for (std::size_t i = 0; i < graph_width / 2; i++) {
+      std::printf("-");
+    }
+    std::printf("0");
+    for (std::size_t i = 0; i < graph_width / 2; i++) {
+      std::printf("-");
+    }
+    std::printf("\n");
+
     for (std::size_t i = 0; i < dataset_dim; i++) {
-      std::printf("%*lu | %+.2e, %+.2e, %+.2e, %+.2e\n", dimension_format_width,
-                  i, stats[i].avg, stats[i].var,
+      std::printf("%*lu | %+.2e, %+.2e, %+.2e, %+.2e | ",
+                  dimension_format_width, i, stats[i].avg, stats[i].var,
                   static_cast<double>(stats[i].min),
                   static_cast<double>(stats[i].max));
+      std::uint32_t j = 0;
+      for (; j < (stats[i].min + max_abs) / (2 * max_abs) * graph_width; j++) {
+        std::printf(" ");
+      }
+      for (; j < (stats[i].avg + max_abs) / (2 * max_abs) * graph_width; j++) {
+        std::printf("<");
+      }
+      std::printf("#");
+      for (; j < (stats[i].max + max_abs) / (2 * max_abs) * graph_width; j++) {
+        std::printf(">");
+      }
+      std::printf("\n");
     }
   }
 }
