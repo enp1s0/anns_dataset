@@ -461,7 +461,7 @@ public:
         if (print_log) {
           if (append_size > loading_progress_interval &&
               i % (append_size / loading_progress_interval) == 0) {
-            std::printf("[ANNS-DS store]: Loading... (%4.2f %%)\r",
+            std::printf("[ANNS-DS store]: Storing... (%4.2f %%)\r",
                         i * 100. / append_size);
             std::fflush(stdout);
           }
