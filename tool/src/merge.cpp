@@ -1,4 +1,5 @@
 #include <anns_dataset.hpp>
+#include <chrono>
 #include <vector>
 
 #define UNUSED(a)                                                              \
@@ -16,13 +17,18 @@ int merge_core(const std::string output_path,
   UNUSED(dataset_size_0);
 
   mtk::anns_dataset::store_stream<T> ss(output_path, dataset_dim_0, format);
+  std::printf("[merge] Output path : %s\n", output_path.c_str());
 
+  std::size_t total_dataset_size = 0;
   std::uint32_t num_processed = 0;
   for (const auto &input_path : input_path_list) {
-    std::printf("[merge] Merging %s (%3u / %3lu) ...", input_path.c_str(),
-                num_processed + 1, input_path_list.size());
+    const auto start_clock = std::chrono::system_clock::now();
     const auto [dataset_size, dataset_dim] =
         mtk::anns_dataset::load_size_info<T>(input_path_list[0]);
+    std::printf("[merge] Merging %s [size=%lu] (%3u / %3lu) ...",
+                input_path.c_str(), dataset_size, num_processed + 1,
+                input_path_list.size());
+
     if (dataset_dim != dataset_dim_0) {
       std::printf("\n");
       std::fprintf(stderr,
@@ -38,10 +44,19 @@ int merge_core(const std::string output_path,
 
     ss.append(dataset_buffer.data(), dataset_dim, dataset_size);
 
-    std::printf(" Done\n");
+    const auto end_clock = std::chrono::system_clock::now();
+    const auto elapsed_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(end_clock -
+                                                              start_clock)
+            .count() *
+        1e-6;
+    std::printf(" Done [%.3fs]\n", elapsed_time);
     num_processed++;
+    total_dataset_size += dataset_size;
   }
 
+  std::printf("[merge] Total dataset size : %lu\n", total_dataset_size);
+  std::printf("[merge] Closing %s\n", output_path.c_str());
   ss.close();
 
   return 0;
