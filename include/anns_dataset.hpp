@@ -437,6 +437,7 @@ public:
     }
   }
 
+private:
   template <class HEADER_T>
   inline void _append_core(const T *const dataset_ptr, const std::size_t ldd,
                            const std::size_t append_size) {
@@ -497,6 +498,8 @@ public:
       std::fflush(stdout);
     }
   }
+
+public:
   inline void append(const T *const dataset_ptr, const std::size_t ldd,
                      const std::size_t append_size) {
     const auto header_t = format & format_t::HEADER_MASK;
