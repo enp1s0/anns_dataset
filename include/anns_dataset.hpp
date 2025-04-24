@@ -167,7 +167,7 @@ inline void load_size_info(const std::string file_path, std::size_t &num_data,
 
     std::ifstream ifs(file_path);
     if (!ifs) {
-      std::fprintf(stderr, "No such file : %s\n", file_path.c_str());
+      throw std::runtime_error("No such file: " + file_path);
     }
 
     if (print_log) {
@@ -187,7 +187,8 @@ inline void load_size_info(const std::string file_path, std::size_t &num_data,
     if (format == format_t::FORMAT_AUTO_DETECT) {
       if ((format = detect_file_format<T, HEADER_T>(file_path, print_log)) ==
           format_t::FORMAT_UNKNOWN) {
-        return;
+        throw std::runtime_error("Could not detect the file format: " +
+                                 file_path);
       }
     }
 
