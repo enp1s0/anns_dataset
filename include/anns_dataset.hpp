@@ -467,6 +467,7 @@ template <class T> class store_stream {
   std::ofstream *ofs_ref;
   std::ofstream ofs;
   std::size_t current_dataset_size_ = 0;
+  std::ios::pos_type beg_pos;
 
 public:
   inline store_stream(const std::string dst_path, const std::size_t data_dim,
@@ -474,6 +475,7 @@ public:
       : dataset_dim(data_dim), format(format), print_log(print_log) {
     ofs.open(dst_path, std::ios::binary);
     ofs_ref = &ofs;
+    beg_pos = ofs.tellp();
 
     const auto format_t = format & format_t::FORMAT_MASK;
     const auto header_t = format & format_t::HEADER_MASK;
@@ -499,7 +501,7 @@ public:
   inline store_stream(std::ofstream &ofs_ref, const std::size_t data_dim,
                       const format_t format, const bool print_log = false)
       : dataset_dim(data_dim), format(format), print_log(print_log),
-        ofs_ref(&ofs_ref) {
+        ofs_ref(&ofs_ref), beg_pos(ofs_ref.tellp()) {
 
     const auto format_t = format & format_t::FORMAT_MASK;
     const auto header_t = format & format_t::HEADER_MASK;
@@ -555,7 +557,7 @@ private:
     } else if ((format & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
       const HEADER_T d = dataset_dim;
       const HEADER_T s = current_dataset_size;
-      ofs_ref->seekp(0, ofs_ref->beg);
+      ofs_ref->seekp(beg_pos, std::ios::beg);
       ofs_ref->write(reinterpret_cast<const char *>(&s), sizeof(HEADER_T));
       ofs_ref->write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
 
