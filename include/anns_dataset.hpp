@@ -89,24 +89,23 @@ struct range_t {
 };
 
 template <class T, class HEADER_T = void>
-inline format_t detect_file_format(const std::string file_path,
+inline format_t detect_file_format(std::ifstream &ifs,
                                    const bool print_log = false) {
-  std::ifstream ifs(file_path);
-  if (!ifs) {
-    throw std::runtime_error("No such file: " + file_path);
-  }
-
   if constexpr (std::is_same<HEADER_T, void>::value) {
     // HEADER_T auto detect
     if (print_log) {
       std::printf("[ANNS-DS %s]: Detecting HEADER_T...\n", __func__);
       std::fflush(stdout);
     }
-    const auto v32 = detect_file_format<T, std::uint32_t>(file_path, print_log);
+    const auto v32 = detect_file_format<T, std::uint32_t>(ifs, print_log);
     if (v32 != mtk::anns_dataset::format_t::FORMAT_UNKNOWN)
       return v32;
-    return detect_file_format<T, std::uint64_t>(file_path, print_log);
+    return detect_file_format<T, std::uint64_t>(ifs, print_log);
   } else {
+    if (!ifs) {
+      throw std::runtime_error("Invalid ifstream");
+    }
+    const auto current_pos = ifs.tellg();
     // Calculate file size
     ifs.seekg(0, ifs.end);
     const auto file_size = static_cast<std::size_t>(ifs.tellg());
@@ -114,7 +113,6 @@ inline format_t detect_file_format(const std::string file_path,
 
     HEADER_T header[2];
     ifs.read(reinterpret_cast<char *>(header), sizeof(header));
-    ifs.close();
 
     const auto is_bigann = detail::is_bigann<T, HEADER_T>(header, file_size);
     const auto is_vecs = detail::is_vecs<T, HEADER_T>(header, file_size);
@@ -133,21 +131,33 @@ inline format_t detect_file_format(const std::string file_path,
                   get_format_str(format).c_str());
       std::fflush(stdout);
     }
+    ifs.seekg(current_pos);
     return format;
   }
 }
 
 template <class T, class HEADER_T = void>
-inline void load_size_info(const std::string file_path, std::size_t &num_data,
+inline format_t detect_file_format(const std::string file_path,
+                                   const bool print_log = false) {
+  std::ifstream ifs(file_path);
+  if (!ifs) {
+    throw std::runtime_error("No such file: " + file_path);
+  }
+  detect_file_format<T, HEADER_T>(ifs, print_log);
+  ifs.close();
+}
+
+template <class T, class HEADER_T = void>
+inline void load_size_info(std::ifstream &ifs, std::size_t &num_data,
                            std::size_t &data_dim,
                            mtk::anns_dataset::format_t format =
                                mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
                            const bool print_log = false) {
   num_data = data_dim = 0;
   if constexpr (std::is_same<HEADER_T, void>::value) {
-    const auto detected_format =
-        detect_file_format<T, void>(file_path, print_log);
+    const auto detected_format = detect_file_format<T, void>(ifs, print_log);
     if (detected_format == format_t::FORMAT_UNKNOWN) {
+      throw std::runtime_error("Could not detect the file format");
       return;
     }
 
@@ -155,20 +165,16 @@ inline void load_size_info(const std::string file_path, std::size_t &num_data,
     const auto detected_format_t = detected_format & format_t::FORMAT_MASK;
 
     if (detected_header_t == format_t::HEADER_U32) {
-      load_size_info<T, std::uint32_t>(file_path, num_data, data_dim,
+      load_size_info<T, std::uint32_t>(ifs, num_data, data_dim,
                                        detected_format_t, print_log);
     } else {
-      load_size_info<T, std::uint64_t>(file_path, num_data, data_dim,
+      load_size_info<T, std::uint64_t>(ifs, num_data, data_dim,
                                        detected_format_t, print_log);
     }
   } else {
+    const auto current_pos = ifs.tellg();
     num_data = 0;
     data_dim = 0;
-
-    std::ifstream ifs(file_path);
-    if (!ifs) {
-      throw std::runtime_error("No such file: " + file_path);
-    }
 
     if (print_log) {
       std::printf("[ANNS-DS %s]: Given format / mode = %s\n", __func__,
@@ -181,26 +187,64 @@ inline void load_size_info(const std::string file_path, std::size_t &num_data,
     const auto file_size = static_cast<std::size_t>(ifs.tellg());
     ifs.seekg(0, ifs.beg);
 
+    ifs.seekg(current_pos);
     HEADER_T header[2];
     ifs.read(reinterpret_cast<char *>(header), sizeof(header));
 
     if (format == format_t::FORMAT_AUTO_DETECT) {
-      if ((format = detect_file_format<T, HEADER_T>(file_path, print_log)) ==
+      if ((format = detect_file_format<T, HEADER_T>(ifs, print_log)) ==
           format_t::FORMAT_UNKNOWN) {
-        throw std::runtime_error("Could not detect the file format: " +
-                                 file_path);
+        throw std::runtime_error("Could not detect the file format");
       }
     }
 
     if ((format & format_t::FORMAT_VECS) != format_t::FORMAT_UNKNOWN) {
       data_dim = header[0];
       num_data = file_size / (sizeof(HEADER_T) + data_dim * sizeof(T));
-    } else {
+    } else if ((format & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
       data_dim = header[1];
       num_data = header[0];
+    } else {
+      throw std::runtime_error("Unknown file format");
     }
-    ifs.close();
+    ifs.seekg(current_pos);
   }
+}
+
+template <class T, class HEADER_T = void>
+inline void load_size_info(const std::string file_path, std::size_t &num_data,
+                           std::size_t &data_dim,
+                           mtk::anns_dataset::format_t format =
+                               mtk::anns_dataset::format_t::FORMAT_AUTO_DETECT,
+                           const bool print_log = false) {
+  std::ifstream ifs(file_path);
+  if (!ifs) {
+    throw std::runtime_error("No such file: " + file_path);
+  }
+
+  if (print_log) {
+    std::printf("[ANNS-DS %s]: Given format / mode = %s\n", __func__,
+                get_format_str(format).c_str());
+    std::fflush(stdout);
+  }
+  load_size_info<T, HEADER_T>(ifs, num_data, data_dim, format, print_log);
+  ifs.close();
+}
+
+template <class T, class HEADER_T = void>
+inline std::pair<std::size_t, std::size_t>
+load_size_info(std::ifstream &ifs,
+               const format_t format = format_t::FORMAT_AUTO_DETECT,
+               const bool print_log = false) {
+  std::size_t data_dim, num_data;
+
+  load_size_info<T, HEADER_T>(ifs, num_data, data_dim, format, print_log);
+
+  if (data_dim == 0 && num_data == 0) {
+    throw std::runtime_error("Invalid file format");
+  }
+
+  return std::make_pair(num_data, data_dim);
 }
 
 template <class T, class HEADER_T = void>
@@ -220,13 +264,11 @@ load_size_info(const std::string file_path,
 }
 
 template <class MEM_T, class T = MEM_T, class HEADER_T = void>
-int load(MEM_T *const ptr, const std::string file_path,
-         const bool print_log = false,
+int load(MEM_T *const ptr, std::ifstream &ifs, const bool print_log = false,
          const format_t format = format_t::FORMAT_AUTO_DETECT,
          const range_t range = range_t{.offset = 0, .size = 0}) {
   if constexpr (std::is_same<HEADER_T, void>::value) {
-    const auto detected_format =
-        detect_file_format<T, void>(file_path, print_log);
+    const auto detected_format = detect_file_format<T, void>(ifs, print_log);
     if (detected_format == format_t::FORMAT_UNKNOWN) {
       return 1;
     }
@@ -237,14 +279,13 @@ int load(MEM_T *const ptr, const std::string file_path,
     const auto f =
         format == format_t::FORMAT_AUTO_DETECT ? detected_format_t : format;
     if (detected_header_t == format_t::HEADER_U32) {
-      load<MEM_T, T, std::uint32_t>(ptr, file_path, print_log, f, range);
+      load<MEM_T, T, std::uint32_t>(ptr, ifs, print_log, f, range);
     } else {
-      load<MEM_T, T, std::uint64_t>(ptr, file_path, print_log, f, range);
+      load<MEM_T, T, std::uint64_t>(ptr, ifs, print_log, f, range);
     }
   } else {
-    std::ifstream ifs(file_path);
     if (!ifs) {
-      std::fprintf(stderr, "No such file : %s\n", file_path.c_str());
+      std::fprintf(stderr, "Invalid ifstream\n");
       return 1;
     }
 
@@ -254,8 +295,7 @@ int load(MEM_T *const ptr, const std::string file_path,
     ifs.seekg(0, ifs.beg);
 
     if (print_log) {
-      std::printf("[ANNS-DS %s]: Dataset path = %s\n", __func__,
-                  file_path.c_str());
+      std::printf("[ANNS-DS %s]: Load from ifstream\n", __func__);
       std::printf("[ANNS-DS %s]: Dataset file size = %lu\n", __func__,
                   file_size);
       std::fflush(stdout);
@@ -398,9 +438,25 @@ int load(MEM_T *const ptr, const std::string file_path,
       std::printf("[ANNS-DS %s]: Completed\n", __func__);
       std::fflush(stdout);
     }
-    ifs.close();
   }
   return 0;
+}
+
+template <class MEM_T, class T = MEM_T, class HEADER_T = void>
+int load(MEM_T *const ptr, const std::string file_path,
+         const bool print_log = false,
+         const format_t format = format_t::FORMAT_AUTO_DETECT,
+         const range_t range = range_t{.offset = 0, .size = 0}) {
+  std::ifstream ifs(file_path);
+  if (!ifs) {
+    std::fprintf(stderr, "No such file : %s\n", file_path.c_str());
+    return 1;
+  }
+
+  const auto res = load(ptr, ifs, print_log, format, range);
+
+  ifs.close();
+  return res;
 }
 
 template <class T> class store_stream {
@@ -408,6 +464,7 @@ template <class T> class store_stream {
   format_t format;
   const bool print_log;
 
+  std::ofstream *ofs_ref;
   std::ofstream ofs;
   std::size_t current_dataset_size_ = 0;
 
@@ -416,6 +473,7 @@ public:
                       const format_t format, const bool print_log = false)
       : dataset_dim(data_dim), format(format), print_log(print_log) {
     ofs.open(dst_path, std::ios::binary);
+    ofs_ref = &ofs;
 
     const auto format_t = format & format_t::FORMAT_MASK;
     const auto header_t = format & format_t::HEADER_MASK;
@@ -438,6 +496,31 @@ public:
     }
   }
 
+  inline store_stream(std::ofstream &ofs_ref, const std::size_t data_dim,
+                      const format_t format, const bool print_log = false)
+      : dataset_dim(data_dim), format(format), print_log(print_log),
+        ofs_ref(&ofs_ref) {
+
+    const auto format_t = format & format_t::FORMAT_MASK;
+    const auto header_t = format & format_t::HEADER_MASK;
+    if (format_t == mtk::anns_dataset::format_t::FORMAT_UNKNOWN) {
+      throw std::runtime_error("[ANNS-DS store]: Unknown format (" +
+                               get_format_str(format) + ")");
+    }
+    if (header_t == mtk::anns_dataset::format_t::FORMAT_UNKNOWN) {
+      this->format = this->format | mtk::anns_dataset::format_t::HEADER_U32;
+      if (print_log) {
+        std::printf(
+            "[ANNS-DS store]: Header type was not specified. Set to U32.\n");
+      }
+    }
+
+    if (print_log) {
+      std::printf("[ANNS-DS store]: Write to ofs");
+      std::fflush(stdout);
+    }
+  }
+
 private:
   template <class HEADER_T>
   inline void _append_core(const T *const dataset_ptr, const std::size_t ldd,
@@ -456,9 +539,9 @@ private:
     if ((format & format_t::FORMAT_VECS) != format_t::FORMAT_UNKNOWN) {
       for (std::size_t i = 0; i < append_size; i++) {
         const HEADER_T d = dataset_dim;
-        ofs.write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
-        ofs.write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
-                  sizeof(T) * dataset_dim);
+        ofs_ref->write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
+        ofs_ref->write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
+                       sizeof(T) * dataset_dim);
 
         if (print_log) {
           if (append_size > loading_progress_interval &&
@@ -472,14 +555,14 @@ private:
     } else if ((format & format_t::FORMAT_BIGANN) != format_t::FORMAT_UNKNOWN) {
       const HEADER_T d = dataset_dim;
       const HEADER_T s = current_dataset_size;
-      ofs.seekp(0, ofs.beg);
-      ofs.write(reinterpret_cast<const char *>(&s), sizeof(HEADER_T));
-      ofs.write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
+      ofs_ref->seekp(0, ofs_ref->beg);
+      ofs_ref->write(reinterpret_cast<const char *>(&s), sizeof(HEADER_T));
+      ofs_ref->write(reinterpret_cast<const char *>(&d), sizeof(HEADER_T));
 
-      ofs.seekp(0, ofs.end);
+      ofs_ref->seekp(0, ofs_ref->end);
       for (std::size_t i = 0; i < append_size; i++) {
-        ofs.write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
-                  sizeof(T) * dataset_dim);
+        ofs_ref->write(reinterpret_cast<const char *>(dataset_ptr + i * ldd),
+                       sizeof(T) * dataset_dim);
 
         if (print_log) {
           if (append_size > loading_progress_interval &&
@@ -521,6 +604,16 @@ inline int store(const std::string dst_path, const std::size_t data_size,
   store_stream<T> ss(dst_path, data_dim, format, print_log);
   ss.append(data_ptr, data_dim, data_size);
   ss.close();
+
+  return 0;
+}
+
+template <class T>
+inline int store(std::ofstream &ofs, const std::size_t data_size,
+                 const std::size_t data_dim, const T *const data_ptr,
+                 const format_t format, const bool print_log = false) {
+  store_stream<T> ss(ofs, data_dim, format, print_log);
+  ss.append(data_ptr, data_dim, data_size);
 
   return 0;
 }
