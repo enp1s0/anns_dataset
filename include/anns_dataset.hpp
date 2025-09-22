@@ -516,7 +516,7 @@ public:
     }
 
     if (print_log) {
-      std::printf("[ANNS-DS store]: Write to ofs");
+      std::printf("[ANNS-DS store]: Write to ofstream\n");
       std::fflush(stdout);
     }
   }
